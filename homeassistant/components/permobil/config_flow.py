@@ -72,12 +72,16 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     }
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
+        self, user_input: dict[str, str] | None = None
     ) -> FlowResult:
         """Invoke when a user initiates a flow via the user interface."""
-        # IDEA: in the future allow for multiple accounts
-        await self.async_set_unique_id(DOMAIN)
-        self._abort_if_unique_id_configured()
+
+        # allow for one setup per email
+        if user_input is not None:
+            email: str = user_input.get(CONF_EMAIL, "token").lower()
+            await self.async_set_unique_id(email)
+            self._abort_if_unique_id_configured()
+
         errors: dict[str, str] = {}
         if not self.p_api:
             # create the api instance to use for validation of the user input
@@ -211,7 +215,6 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 token, expiration = resp  # get token and ttl from the response
                 self.p_api.set_token(token)
                 self.p_api.set_expiration_date(expiration)
-                self.p_api.self_authenticate()  # ClientException
                 self.data[CONF_TOKEN] = token
                 self.data[CONF_TTL] = expiration
                 _LOGGER.debug("Permobil: token %s…", self.data[CONF_TOKEN][:5])
@@ -240,5 +243,5 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         # the entire flow finished successfully
-        # IDEA: in the future make the title unique for each account
-        return self.async_create_entry(title="Token", data=self.data)
+        config_id: str = self.data.get(CONF_EMAIL, "Token").lower()
+        return self.async_create_entry(title=config_id, data=self.data)
