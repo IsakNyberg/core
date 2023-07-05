@@ -20,8 +20,7 @@ from mypermobil import (
     USAGE_ADJUSTMENTS,
     USAGE_DISTANCE,
     MyPermobil,
-    MyPermobilAPIException,
-    MyPermobilClientException,
+    MyPermobilException,
 )
 
 from homeassistant import config_entries
@@ -75,6 +74,7 @@ async def async_setup_entry(
     if config_entry.options:
         config.update(config_entry.options)
     session = hass.helpers.aiohttp_client.async_get_clientsession()
+
     # create the API object from the config
     p_api = MyPermobil(
         application=APPLICATION,
@@ -92,11 +92,11 @@ async def async_setup_entry(
     try:
         # find out what unit of distance the user has set
         p_api_unit = str(await p_api.request_item(BATTERY_DISTANCE_UNIT))
-    except (MyPermobilClientException, MyPermobilAPIException) as err:
+    except MyPermobilException as err:
         _LOGGER.error("Permobil: %s", err)
 
     if p_api_unit not in [KM, MILES]:
-        _LOGGER.error("Unknown unit of distance: %s", p_api_unit)
+        _LOGGER.error("Unknown unit of distance: %s, defaulting to km", p_api_unit)
 
     # translate the Permobils unit of distance to a Home Assistant unit of distance
     # default to kilometers if the unit is unknown
@@ -149,7 +149,7 @@ class PermobilGenericSensor(SensorEntity):
         """Get battery percentage."""
         try:
             self._attr_native_value = await self._permobil.request_item(self._item)
-        except (MyPermobilClientException, MyPermobilAPIException) as err:
+        except MyPermobilException as err:
             _LOGGER.error("Error while fetching %s: %s", self._attr_name, err)
             self._attr_native_value = None
 
@@ -202,9 +202,9 @@ class PermobilChargingSensor(BinarySensorEntity):
         """Get charging status."""
         try:
             self._attr_is_on = bool(await self._permobil.request_item(self._item))
-        except (MyPermobilClientException, MyPermobilAPIException):
+        except MyPermobilException:
             # if we can't get the charging status, assume it is not charging
-            self._attr_is_on = False
+            self._attr_is_on = None
 
 
 class PermobilChargeTimeLeftSensor(PermobilGenericSensor):

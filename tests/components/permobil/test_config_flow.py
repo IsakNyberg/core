@@ -99,7 +99,7 @@ async def test_form_invalid_region_api(hass: HomeAssistant) -> None:
             data={CONF_REGION: MOCK_REGION},
         )
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "connection_error"
+    assert result["errors"].get("reason") == "api_error"
 
 
 async def test_form_invalid_code(hass: HomeAssistant) -> None:
@@ -173,11 +173,11 @@ async def test_form_valid_code(hass: HomeAssistant) -> None:
     assert not result.get("errors")
 
 
-async def test_form_connection_error_region(hass: HomeAssistant) -> None:
+async def test_form_connection_error_region_names(hass: HomeAssistant) -> None:
     """Test we handle a connection error."""
     with patch(
         "homeassistant.components.permobil.config_flow.MyPermobil.request_region_names",
-        side_effect=config_flow.MyPermobilAPIException,
+        side_effect=config_flow.MyPermobilConnectionException,
     ):
         result = await hass.config_entries.flow.async_init(
             config_flow.DOMAIN,
@@ -190,11 +190,31 @@ async def test_form_connection_error_region(hass: HomeAssistant) -> None:
     assert result["errors"].get("reason") == "connection_error"
 
 
+async def test_form_connection_error_region_app_code(hass: HomeAssistant) -> None:
+    """Test we handle a connection error."""
+    with patch(
+        "homeassistant.components.permobil.config_flow.PermobilConfigFlow.region_names",
+        MOCK_REGIONS,
+    ), patch(
+        "homeassistant.components.permobil.config_flow.MyPermobil.request_application_code",
+        side_effect=config_flow.MyPermobilConnectionException,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            config_flow.DOMAIN,
+            context={"source": "region"},
+            data={CONF_REGION: MOCK_REGION},
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "region"
+    assert result["errors"].get("reason") == "connection_error"
+
+
 async def test_form_connection_error_token(hass: HomeAssistant) -> None:
     """Test we handle a connection error."""
     with patch(
         "homeassistant.components.permobil.config_flow.MyPermobil.request_application_token",
-        side_effect=config_flow.MyPermobilAPIException,
+        side_effect=config_flow.MyPermobilConnectionException,
     ):
         result = await hass.config_entries.flow.async_init(
             config_flow.DOMAIN,
@@ -204,7 +224,7 @@ async def test_form_connection_error_token(hass: HomeAssistant) -> None:
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "email_code"
-    assert result["errors"].get("reason") == "invalid_code"
+    assert result["errors"].get("reason") == "connection_error"
 
 
 async def test_validate_input() -> None:

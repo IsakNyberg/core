@@ -4,7 +4,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from mypermobil import MyPermobil, MyPermobilAPIException, MyPermobilClientException
+from mypermobil import (
+    MyPermobil,
+    MyPermobilAPIException,
+    MyPermobilClientException,
+    MyPermobilConnectionException,
+)
 import voluptuous as vol
 
 from homeassistant import config_entries, exceptions
@@ -56,7 +61,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # The schema version of the entries that it creates
     # Home Assistant will call your migrate method if the version changes
     VERSION = 1
-    p_api: MyPermobil = None
+    p_api: MyPermobil | None = None
     region_names = {"Failed to load regions": ""}
     data = {
         CONF_EMAIL: "",
@@ -127,7 +132,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # for the user to select from. [("name","url"),("name","url"),...]
                 self.region_names = await self.p_api.request_region_names(
                     include_internal
-                )
+                )  # MyPermobilAPIException
                 _LOGGER.debug(
                     "Permobil: region names %s",
                     ",".join(list(self.region_names.keys())),
@@ -146,12 +151,19 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.p_api.request_application_code()  # MyPermobilAPIException
         except KeyError as err:
             # the user has selected a region name that is not in the list (somehow)
+            _LOGGER.error("Permobil: %s", err)
             errors["base"] = f"Pemobil: {err}"
             errors["reason"] = "invalid_region"
-        except MyPermobilAPIException as err:
-            # the backend has returned an error
+        except MyPermobilConnectionException as err:
+            # the connection has returned an error
+            _LOGGER.error("Permobil: %s", err)
             errors["base"] = f"Pemobil: {err}"
             errors["reason"] = "connection_error"
+        except MyPermobilAPIException as err:
+            # the backend has returned an error
+            _LOGGER.error("Permobil: %s", err)
+            errors["base"] = f"Pemobil: {err}"
+            errors["reason"] = "api_error"
 
         if errors or user_input is None:
             # There was an error when the user selected their region
@@ -196,9 +208,12 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.data[CONF_CODE] = user_input[CONF_CODE]
                 _LOGGER.debug("Permobil: code %s…", self.data[CONF_CODE][:3])
                 resp = await self.p_api.request_application_token()  # APIException
-                token, ttl = resp  # get token and ttl from the response
+                token, expiration = resp  # get token and ttl from the response
+                self.p_api.set_token(token)
+                self.p_api.set_expiration_date(expiration)
+                self.p_api.self_authenticate()  # ClientException
                 self.data[CONF_TOKEN] = token
-                self.data[CONF_TTL] = ttl
+                self.data[CONF_TTL] = expiration
                 _LOGGER.debug("Permobil: token %s…", self.data[CONF_TOKEN][:5])
                 _LOGGER.debug("Permobil: ttl %s", self.data[CONF_TTL])
         except (MyPermobilAPIException, MyPermobilClientException) as err:
@@ -207,6 +222,11 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             _LOGGER.error("Permobil: %s", err)
             errors["base"] = f"Pemobil: {err}"
             errors["reason"] = "invalid_code"
+        except MyPermobilConnectionException as err:
+            # the connection has returned an error
+            _LOGGER.error("Permobil: %s", err)
+            errors["base"] = f"Pemobil: {err}"
+            errors["reason"] = "connection_error"
         except InvalidAuth as err:
             _LOGGER.error("Permobil: %s", err)
             errors["base"] = "Empty Code"
