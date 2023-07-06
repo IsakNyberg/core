@@ -1,5 +1,5 @@
 """Test the MyPermobil config flow."""
-from datetime import datetime, timedelta
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,19 +11,21 @@ from homeassistant.const import CONF_CODE, CONF_EMAIL, CONF_REGION, CONF_TOKEN, 
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-pytestmark = pytest.mark.usefixtures("mock_setup_entry")
+from .const import (
+    EMPTY,
+    INVALID_CODE,
+    INVALID_EMAIL,
+    INVALID_REGION,
+    MOCK_CODE,
+    MOCK_DATE,
+    MOCK_EMAIL,
+    MOCK_REGION,
+    MOCK_REGIONS,
+    MOCK_TOKEN,
+    MOCK_TOKEN_RESPONSE,
+)
 
-MOCK_REGIONS = {"region_name": "https://example.com"}
-MOCK_REGION = "region_name"
-MOCK_TOKEN = "a" * 256
-MOCK_DATE = (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d")
-MOCK_TOKEN_RESPONSE = (MOCK_TOKEN, MOCK_DATE)
-MOCK_CODE = "012345                      "
-MOCK_EMAIL = "valid@email.com            "
-EMPTY = ""
-INVALID_EMAIL = "this is not a valid email"
-INVALID_REGION = "this is not a valid region"
-INVALID_CODE = "this is not a valid code"
+pytestmark = pytest.mark.usefixtures("mock_setup_entry")
 
 
 async def test_flow_init(hass: HomeAssistant) -> None:
@@ -32,8 +34,8 @@ async def test_flow_init(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {}
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"] == {}  # type: ignore
 
 
 async def test_form_empty_email(hass: HomeAssistant) -> None:
@@ -45,8 +47,9 @@ async def test_form_empty_email(hass: HomeAssistant) -> None:
         _result["flow_id"],
         user_input={CONF_EMAIL: EMPTY},
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "empty_email"
+
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"].get("reason") == "empty_email"  # type: ignore
 
 
 async def test_form_empty_code(hass: HomeAssistant) -> None:
@@ -58,8 +61,8 @@ async def test_form_empty_code(hass: HomeAssistant) -> None:
         _result["flow_id"],
         user_input={CONF_CODE: EMPTY},
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "empty_code"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"].get("reason") == "empty_code"  # type: ignore
 
 
 async def test_form_invalid_email(hass: HomeAssistant) -> None:
@@ -71,8 +74,8 @@ async def test_form_invalid_email(hass: HomeAssistant) -> None:
         _result["flow_id"],
         user_input={CONF_EMAIL: INVALID_EMAIL},
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "invalid_email"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"].get("reason") == "invalid_email"  # type: ignore
 
 
 async def test_form_invalid_region_no_match(hass: HomeAssistant) -> None:
@@ -82,8 +85,8 @@ async def test_form_invalid_region_no_match(hass: HomeAssistant) -> None:
         context={"source": "region"},
         data={CONF_REGION: INVALID_REGION},
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "invalid_region"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"].get("reason") == "invalid_region"  # type: ignore
 
 
 async def test_form_invalid_region_api(hass: HomeAssistant) -> None:
@@ -100,8 +103,8 @@ async def test_form_invalid_region_api(hass: HomeAssistant) -> None:
             context={"source": "region"},
             data={CONF_REGION: MOCK_REGION},
         )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "api_error"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"].get("reason") == "api_error"  # type: ignore
 
 
 async def test_form_invalid_code(hass: HomeAssistant) -> None:
@@ -111,8 +114,8 @@ async def test_form_invalid_code(hass: HomeAssistant) -> None:
         context={"source": "email_code"},
         data={CONF_CODE: INVALID_CODE},
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"].get("reason") == "invalid_code"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["errors"].get("reason") == "invalid_code"  # type: ignore
 
 
 async def test_form_valid_email(hass: HomeAssistant) -> None:
@@ -127,9 +130,9 @@ async def test_form_valid_email(hass: HomeAssistant) -> None:
             data={CONF_EMAIL: MOCK_EMAIL},
         )
     expected_email = MOCK_EMAIL.replace(" ", "")
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "region"
-    assert result["errors"] == {}
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["step_id"] == "region"  # type: ignore
+    assert result["errors"] == {}  # type: ignore
     assert len(mock.mock_calls) == 1
     assert config_flow.PermobilConfigFlow.data.get(CONF_EMAIL) == expected_email
 
@@ -150,9 +153,9 @@ async def test_form_valid_region(hass: HomeAssistant) -> None:
         )
 
     expected_region = MOCK_REGIONS.get(MOCK_REGION)
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "email_code"
-    assert result["errors"] == {}
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["step_id"] == "email_code"  # type: ignore
+    assert result["errors"] == {}  # type: ignore
     assert config_flow.PermobilConfigFlow.data.get(CONF_REGION) == expected_region
 
 
@@ -168,10 +171,10 @@ async def test_form_valid_code(hass: HomeAssistant) -> None:
             data={CONF_CODE: MOCK_CODE},
         )
     expected_code = MOCK_CODE.replace(" ", "")
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["data"].get(CONF_CODE) == expected_code
-    assert result["data"].get(CONF_TOKEN) == MOCK_TOKEN
-    assert result["data"].get(CONF_TTL) == MOCK_DATE
+    assert result["type"] == FlowResultType.CREATE_ENTRY  # type: ignore
+    assert result["data"].get(CONF_CODE) == expected_code  # type: ignore
+    assert result["data"].get(CONF_TOKEN) == MOCK_TOKEN  # type: ignore
+    assert result["data"].get(CONF_TTL) == MOCK_DATE  # type: ignore
     assert not result.get("errors")
 
 
@@ -187,9 +190,9 @@ async def test_form_connection_error_region_names(hass: HomeAssistant) -> None:
             data={CONF_EMAIL: MOCK_EMAIL},
         )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "region"
-    assert result["errors"].get("reason") == "connection_error"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["step_id"] == "region"  # type: ignore
+    assert result["errors"].get("reason") == "connection_error"  # type: ignore
 
 
 async def test_form_connection_error_region_app_code(hass: HomeAssistant) -> None:
@@ -207,9 +210,9 @@ async def test_form_connection_error_region_app_code(hass: HomeAssistant) -> Non
             data={CONF_REGION: MOCK_REGION},
         )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "region"
-    assert result["errors"].get("reason") == "connection_error"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["step_id"] == "region"  # type: ignore
+    assert result["errors"].get("reason") == "connection_error"  # type: ignore
 
 
 async def test_form_connection_error_token(hass: HomeAssistant) -> None:
@@ -224,9 +227,9 @@ async def test_form_connection_error_token(hass: HomeAssistant) -> None:
             data={CONF_CODE: MOCK_CODE},
         )
 
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "email_code"
-    assert result["errors"].get("reason") == "connection_error"
+    assert result["type"] == FlowResultType.FORM  # type: ignore
+    assert result["step_id"] == "email_code"  # type: ignore
+    assert result["errors"].get("reason") == "connection_error"  # type: ignore
 
 
 async def test_validate_input() -> None:
