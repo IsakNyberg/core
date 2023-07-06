@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 
 from mypermobil import (
-    BATTERY_DISTANCE_UNIT,
+    RECORDS_DISTANCE_UNIT,
     MyPermobil,
     MyPermobilException,
 )
@@ -31,7 +31,11 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up MyPermobil from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
+    default: dict = {
+        API: {},
+        UNIT: {},
+    }
+    hass.data.setdefault(DOMAIN, default)
     hass.data[DOMAIN][entry.entry_id] = entry.data
     config = hass.data[DOMAIN][entry.entry_id]
 
@@ -51,19 +55,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except MyPermobilException as err:
         _LOGGER.error("Permobil: %s", err)
         raise ConfigEntryNotReady(f"Permobil Config error for {p_api.email}") from err
-    hass.data[DOMAIN][API] = p_api
+    hass.data[DOMAIN][API][entry.entry_id] = p_api
 
     p_api_unit: str = KM
     try:
         # find out what unit of distance the user has set
-        p_api_unit = str(await p_api.request_item(BATTERY_DISTANCE_UNIT))
+        p_api_unit = str(await p_api.request_item(RECORDS_DISTANCE_UNIT))
         if p_api_unit not in [KM, MILES]:
             _LOGGER.error("Unknown unit of distance: %s, defaulting to km", p_api_unit)
             p_api_unit = KM
     except MyPermobilException as err:
         _LOGGER.error("Permobil: %s", err)
         raise ConfigEntryNotReady(f"Permobil API error for {p_api.email}") from err
-    hass.data[DOMAIN][UNIT] = p_api_unit
+    hass.data[DOMAIN][UNIT][entry.entry_id] = p_api_unit
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -74,5 +78,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN][API].pop(entry.entry_id)
+        hass.data[DOMAIN][UNIT].pop(entry.entry_id)
 
     return unload_ok

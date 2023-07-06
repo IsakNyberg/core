@@ -70,8 +70,8 @@ async def async_setup_entry(
 
     # translate the Permobils unit of distance to a Home Assistant unit of distance
     # default to kilometers if the unit is unknown
-    p_api = hass.data[DOMAIN][API]
-    p_api_unit = hass.data[DOMAIN][UNIT]
+    p_api = hass.data[DOMAIN][API][config_entry.entry_id]
+    p_api_unit = hass.data[DOMAIN][UNIT][config_entry.entry_id]
     ha_unit = UnitOfLength.MILES if p_api_unit == MILES else UnitOfLength.KILOMETERS
     user_specific_sensors = [
         PermobilDistanceLeftSensor(p_api, unit=ha_unit),
