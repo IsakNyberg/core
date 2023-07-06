@@ -9,7 +9,6 @@ from mypermobil import (
     BATTERY_CHARGE_TIME_LEFT,
     BATTERY_CHARGING,
     BATTERY_DISTANCE_LEFT,
-    BATTERY_DISTANCE_UNIT,
     BATTERY_INDOOR_DRIVE_TIME,
     BATTERY_MAX_AMPERE_HOURS,
     BATTERY_MAX_DISTANCE_LEFT,
@@ -34,11 +33,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    CONF_CODE,
-    CONF_EMAIL,
-    CONF_REGION,
-    CONF_TOKEN,
-    CONF_TTL,
     PERCENTAGE,
     UnitOfEnergy,
     UnitOfLength,
@@ -48,7 +42,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import APPLICATION, BATTERY_ASSUMED_VOLTAGE, DOMAIN, KM, MILES
+from .const import API, BATTERY_ASSUMED_VOLTAGE, DOMAIN, MILES, UNIT
 
 
 def setup_platform(
@@ -73,33 +67,11 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     if config_entry.options:
         config.update(config_entry.options)
-    session = hass.helpers.aiohttp_client.async_get_clientsession()
-
-    # create the API object from the config
-    p_api = MyPermobil(
-        application=APPLICATION,
-        session=session,
-        email=config.get(CONF_EMAIL),
-        region=config.get(CONF_REGION),
-        code=config.get(CONF_CODE),
-        token=config.get(CONF_TOKEN),
-        expiration_date=config.get(CONF_TTL),
-    )
-
-    p_api.self_authenticate()
-
-    p_api_unit: str = KM
-    try:
-        # find out what unit of distance the user has set
-        p_api_unit = str(await p_api.request_item(BATTERY_DISTANCE_UNIT))
-    except MyPermobilException as err:
-        _LOGGER.error("Permobil: %s", err)
-
-    if p_api_unit not in [KM, MILES]:
-        _LOGGER.error("Unknown unit of distance: %s, defaulting to km", p_api_unit)
 
     # translate the Permobils unit of distance to a Home Assistant unit of distance
     # default to kilometers if the unit is unknown
+    p_api = hass.data[DOMAIN][API]
+    p_api_unit = hass.data[DOMAIN][UNIT]
     ha_unit = UnitOfLength.MILES if p_api_unit == MILES else UnitOfLength.KILOMETERS
     user_specific_sensors = [
         PermobilDistanceLeftSensor(p_api, unit=ha_unit),
