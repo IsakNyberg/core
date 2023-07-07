@@ -8,8 +8,8 @@ from mypermobil import (
     BATTERY_AMPERE_HOURS_LEFT,
     BATTERY_CHARGE_TIME_LEFT,
     BATTERY_CHARGING,
-    BATTERY_DISTANCE_LEFT,
     BATTERY_INDOOR_DRIVE_TIME,
+    BATTERY_LOCAL_DISTANCE_LEFT,
     BATTERY_MAX_AMPERE_HOURS,
     BATTERY_MAX_DISTANCE_LEFT,
     BATTERY_STATE_OF_CHARGE,
@@ -42,7 +42,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import API, BATTERY_ASSUMED_VOLTAGE, DOMAIN, MILES, UNIT
+from .const import (
+    API,
+    BATTERY_ASSUMED_VOLTAGE,
+    DOMAIN,
+    MILES,
+    MILES_PER_KILOMETER,
+    UNIT,
+)
+
+_LOGGER = logging.getLogger(__name__)
+SCAN_INTERVAL = timedelta(seconds=50)
 
 
 def setup_platform(
@@ -52,10 +62,6 @@ def setup_platform(
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up the sensor platform."""
-
-
-_LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=50)
 
 
 async def async_setup_entry(
@@ -121,6 +127,11 @@ class PermobilGenericSensor(SensorEntity):
         """Get battery percentage."""
         try:
             self._attr_native_value = await self._permobil.request_item(self._item)
+            if self._attr_native_value is None:
+                _LOGGER.error("Sensor retirmed null %s: %s", self._attr_name)
+            if isinstance(self._attr_native_value, float):
+                self._attr_native_value = round(self._attr_native_value, 2)
+
         except MyPermobilException as err:
             _LOGGER.error("Error while fetching %s: %s", self._attr_name, err)
             self._attr_native_value = None
@@ -202,7 +213,7 @@ class PermobilDistanceLeftSensor(PermobilGenericSensor):
 
     def __init__(self, permobil: MyPermobil, unit: UnitOfLength) -> None:
         """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_DISTANCE_LEFT, unit)
+        super().__init__(permobil, BATTERY_LOCAL_DISTANCE_LEFT, unit)
 
 
 class PermobilIndoorDriveTimeSensor(PermobilGenericSensor):
@@ -242,6 +253,7 @@ class PermobilMaxWattHoursSensor(PermobilGenericSensor):
         await super().async_update()
         if self._attr_native_value:
             self._attr_native_value *= BATTERY_ASSUMED_VOLTAGE
+            self._attr_native_value = int(self._attr_native_value)
 
 
 class PermobilWattHoursLeftSensor(PermobilGenericSensor):
@@ -268,6 +280,7 @@ class PermobilWattHoursLeftSensor(PermobilGenericSensor):
         await super().async_update()
         if self._attr_native_value:
             self._attr_native_value *= BATTERY_ASSUMED_VOLTAGE
+            self._attr_native_value = int(self._attr_native_value)
 
 
 class PermobilMaxDistanceLeftSensor(PermobilGenericSensor):
@@ -281,6 +294,19 @@ class PermobilMaxDistanceLeftSensor(PermobilGenericSensor):
     def __init__(self, permobil: MyPermobil, unit: UnitOfLength) -> None:
         """Initialize the sensor."""
         super().__init__(permobil, BATTERY_MAX_DISTANCE_LEFT, unit)
+
+    async def async_update(self) -> None:
+        """Get Max Distance left.
+
+        since the api returns the distance in KM it needs to be converted if the
+        user is using miles.
+        """
+        await super().async_update()
+        if (
+            isinstance(self._attr_native_value, float | int)
+        ) and self._attr_native_unit_of_measurement == UnitOfLength.MILES:
+            self._attr_native_value *= MILES_PER_KILOMETER
+            self._attr_native_value = round(self._attr_native_value, 2)
 
 
 class PermobilUsageDistanceSensor(PermobilGenericSensor):

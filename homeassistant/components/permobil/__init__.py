@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 
 from mypermobil import (
+    ENDPOINT_VA_USAGE_RECORDS,
     RECORDS_DISTANCE_UNIT,
     MyPermobil,
     MyPermobilException,
@@ -60,7 +61,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     p_api_unit: str = KM
     try:
         # find out what unit of distance the user has set
-        p_api_unit = str(await p_api.request_item(RECORDS_DISTANCE_UNIT))
+        p_api_unit = str(
+            await p_api.request_item(
+                RECORDS_DISTANCE_UNIT, endpoint=ENDPOINT_VA_USAGE_RECORDS
+            )
+        )
         if p_api_unit not in [KM, MILES]:
             _LOGGER.error("Unknown unit of distance: %s, defaulting to km", p_api_unit)
             p_api_unit = KM

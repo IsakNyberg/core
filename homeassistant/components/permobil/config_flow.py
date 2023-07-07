@@ -39,7 +39,7 @@ GET_TOKEN_SCHEMA = vol.Schema({vol.Required(CONF_CODE): cv.string})
 
 
 class InvalidAuth(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
+    """User input error caught by the config flow."""
 
 
 async def validate_input(p_api: MyPermobil, data: dict[str, Any]) -> None:
