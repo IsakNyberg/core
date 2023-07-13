@@ -243,5 +243,5 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         # the entire flow finished successfully
-        config_id: str = self.data.get(CONF_EMAIL, "Token").lower()
+        config_id: str = self.data.get(CONF_EMAIL, "token").lower()
         return self.async_create_entry(title=config_id, data=self.data)
