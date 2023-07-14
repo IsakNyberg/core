@@ -1,7 +1,7 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 
 from mypermobil import (
@@ -14,6 +14,7 @@ from mypermobil import (
     BATTERY_MAX_DISTANCE_LEFT,
     BATTERY_STATE_OF_CHARGE,
     BATTERY_STATE_OF_HEALTH,
+    PRODUCT_BY_ID_UPDATED_AT,
     RECORDS_DISTANCE,
     RECORDS_SEATING,
     USAGE_ADJUSTMENTS,
@@ -27,6 +28,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.components.datetime import DateTimeEntity
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -41,12 +43,12 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+import homeassistant.util.dt as dt_util
 
 from .const import (
     API,
     BATTERY_ASSUMED_VOLTAGE,
     DOMAIN,
-    MILES,
     MILES_PER_KILOMETER,
     UNIT,
 )
@@ -77,8 +79,8 @@ async def async_setup_entry(
     # translate the Permobils unit of distance to a Home Assistant unit of distance
     # default to kilometers if the unit is unknown
     p_api = hass.data[DOMAIN][API][config_entry.entry_id]
-    p_api_unit = hass.data[DOMAIN][UNIT][config_entry.entry_id]
-    ha_unit = UnitOfLength.MILES if p_api_unit == MILES else UnitOfLength.KILOMETERS
+    ha_unit = hass.data[DOMAIN][UNIT][config_entry.entry_id]
+
     user_specific_sensors = [
         PermobilDistanceLeftSensor(p_api, unit=ha_unit),
         PermobilMaxDistanceLeftSensor(p_api, unit=ha_unit),
@@ -97,6 +99,7 @@ async def async_setup_entry(
         PermobilWattHoursLeftSensor(p_api),
         PermobilUsageAdjustmentsSensor(p_api),
         PermobilRecordAdjustmentsSensor(p_api),
+        PermobilLastUpdateSensor(p_api),
     ]
 
     sensors = non_specific_sensors + user_specific_sensors
@@ -111,7 +114,7 @@ class PermobilGenericSensor(SensorEntity):
 
     _attr_name = "Generic Sensor"
 
-    def __init__(self, permobil: MyPermobil, item: str, unit: str = "") -> None:
+    def __init__(self, permobil: MyPermobil, item: list, unit: str = "") -> None:
         """Initialize the sensor.
 
         item: The item to request from the API.
@@ -124,11 +127,11 @@ class PermobilGenericSensor(SensorEntity):
             self._attr_native_unit_of_measurement = unit
 
     async def async_update(self) -> None:
-        """Get battery percentage."""
+        """Get the latest data from the API."""
         try:
             self._attr_native_value = await self._permobil.request_item(self._item)
             if self._attr_native_value is None:
-                _LOGGER.error("Sensor retirmed null %s: %s", self._attr_name)
+                _LOGGER.error("Sensor returned none %s: %s", self._attr_name)
             if isinstance(self._attr_native_value, float):
                 self._attr_native_value = round(self._attr_native_value, 2)
 
@@ -357,3 +360,25 @@ class PermobilRecordAdjustmentsSensor(PermobilGenericSensor):
     def __init__(self, permobil: MyPermobil) -> None:
         """Initialize the sensor."""
         super().__init__(permobil, RECORDS_SEATING)
+
+
+class PermobilLastUpdateSensor(DateTimeEntity):
+    """Timestamp of the last update from the API."""
+
+    _attr_name = "Permobil Last Update"
+
+    def __init__(self, permobil: MyPermobil) -> None:
+        """Initialize the sensor."""
+        super().__init__()
+        self._permobil = permobil
+        self._item = PRODUCT_BY_ID_UPDATED_AT
+
+    async def async_update(self) -> None:
+        """Get charging status."""
+        try:
+            resp = await self._permobil.request_item(self._item)
+            self._attr_native_value = datetime.strptime(
+                resp, "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=dt_util.UTC)
+        except MyPermobilException:
+            self._attr_native_value = None

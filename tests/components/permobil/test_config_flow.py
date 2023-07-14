@@ -164,6 +164,15 @@ async def test_form_valid_code(hass: HomeAssistant) -> None:
     with patch(
         "homeassistant.components.permobil.config_flow.MyPermobil.request_application_token",
         return_value=MOCK_TOKEN_RESPONSE,
+    ), patch(
+        "homeassistant.components.permobil.config_flow.MyPermobil.request_item",
+        return_value="km",
+    ), patch(
+        "homeassistant.components.permobil.config_flow.MyPermobil.request_product_id",
+        return_value="1234567890AB" * 2,
+    ), patch(
+        "homeassistant.components.permobil.config_flow.MyPermobil.self_authenticate",
+        return_value=None,
     ):
         result = await hass.config_entries.flow.async_init(
             config_flow.DOMAIN,
