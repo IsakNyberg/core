@@ -14,6 +14,7 @@ from mypermobil import (
     BATTERY_MAX_DISTANCE_LEFT,
     BATTERY_STATE_OF_CHARGE,
     BATTERY_STATE_OF_HEALTH,
+    POSITIONS_CURRENT,
     PRODUCT_BY_ID_UPDATED_AT,
     RECORDS_DISTANCE,
     RECORDS_SEATING,
@@ -35,6 +36,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     PERCENTAGE,
     UnitOfEnergy,
     UnitOfLength,
@@ -49,6 +52,8 @@ from .const import (
     API,
     BATTERY_ASSUMED_VOLTAGE,
     DOMAIN,
+    LATITUDE,
+    LONGITUDE,
     MILES_PER_KILOMETER,
     UNIT,
 )
@@ -100,6 +105,7 @@ async def async_setup_entry(
         PermobilUsageAdjustmentsSensor(p_api),
         PermobilRecordAdjustmentsSensor(p_api),
         PermobilLastUpdateSensor(p_api),
+        PermobilPositionSensor(p_api),
     ]
 
     sensors = non_specific_sensors + user_specific_sensors
@@ -374,7 +380,7 @@ class PermobilLastUpdateSensor(DateTimeEntity):
         self._item = PRODUCT_BY_ID_UPDATED_AT
 
     async def async_update(self) -> None:
-        """Get charging status."""
+        """Get last update time."""
         try:
             resp = await self._permobil.request_item(self._item)
             self._attr_native_value = datetime.strptime(
@@ -382,3 +388,41 @@ class PermobilLastUpdateSensor(DateTimeEntity):
             ).replace(tzinfo=dt_util.UTC)
         except MyPermobilException:
             self._attr_native_value = None
+
+
+class PermobilPositionSensor(PermobilGenericSensor):
+    """Position of wheelchair sensor."""
+
+    _attr_name = "Permobil Position Sensor"
+    _show_on_map = True
+
+    def __init__(self, permobil: MyPermobil) -> None:
+        """Initialize the sensor."""
+        super().__init__(permobil, POSITIONS_CURRENT)
+        self._location_data: dict | None = None
+
+    async def async_update(self) -> None:
+        """Get battery and position information."""
+        await super().async_update()
+        if not isinstance(self._attr_native_value, dict):
+            self._location_data = None
+            self._attr_native_value = "Unknown"
+            return
+
+        long = self._attr_native_value.get(LONGITUDE)
+        lat = self._attr_native_value.get(LATITUDE)
+        if not long or not lat:
+            self._location_data = None
+            self._attr_native_value = "Unknown"
+            return
+
+        self._location_data = {
+            ATTR_LONGITUDE: str(long),
+            ATTR_LATITUDE: str(lat),
+        }
+        self._attr_native_value = "Visible on Map"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str] | None:
+        """Return latitude value of the device."""
+        return self._location_data

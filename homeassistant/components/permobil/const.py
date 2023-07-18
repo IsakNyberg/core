@@ -12,3 +12,6 @@ BATTERY_ASSUMED_VOLTAGE = 25.0  # This is the average voltage over all states of
 MILES_PER_KILOMETER = 0.621371
 KM = "kilometers"
 MILES = "miles"
+
+LATITUDE = "lat"
+LONGITUDE = "long"
