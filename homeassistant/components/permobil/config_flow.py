@@ -5,8 +5,6 @@ import logging
 from typing import Any
 
 from mypermobil import (
-    ENDPOINT_VA_USAGE_RECORDS,
-    RECORDS_DISTANCE_UNIT,
     MyPermobil,
     MyPermobilAPIException,
     MyPermobilClientException,
@@ -22,7 +20,6 @@ from homeassistant.const import (
     CONF_REGION,
     CONF_TOKEN,
     CONF_TTL,
-    CONF_UNIT_OF_MEASUREMENT,
 )
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
@@ -73,7 +70,6 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         CONF_CODE: "",
         CONF_TOKEN: "",
         CONF_TTL: "",
-        CONF_UNIT_OF_MEASUREMENT: "",
         CONF_DEVICE_ID: "",
     }
 
@@ -225,13 +221,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self.data[CONF_TTL] = expiration
                 _LOGGER.debug("Permobil: token %s…", self.data[CONF_TOKEN][:5])
                 _LOGGER.debug("Permobil: ttl %s", self.data[CONF_TTL])
-
                 self.p_api.self_authenticate()  # ClientException
-                _LOGGER.debug("Permobil: fetching distance unit")
-                unit = await self.p_api.request_item(
-                    RECORDS_DISTANCE_UNIT, endpoint=ENDPOINT_VA_USAGE_RECORDS
-                )  # APIException
-                self.data[CONF_UNIT_OF_MEASUREMENT] = str(unit)
 
                 _LOGGER.debug("Permobil: fetching device id")
                 device_id = await self.p_api.request_product_id()  # APIException

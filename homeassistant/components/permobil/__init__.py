@@ -16,14 +16,12 @@ from homeassistant.const import (
     CONF_REGION,
     CONF_TOKEN,
     CONF_TTL,
-    CONF_UNIT_OF_MEASUREMENT,
     Platform,
-    UnitOfLength,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import API, APPLICATION, DOMAIN, KM, MILES, UNIT
+from .const import API, APPLICATION, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,7 +33,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up MyPermobil from a config entry."""
     default: dict = {
         API: {},
-        UNIT: {},
     }
     hass.data.setdefault(DOMAIN, default)
     hass.data[DOMAIN][entry.entry_id] = entry.data
@@ -60,13 +57,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady(f"Permobil Config error for {p_api.email}") from err
     hass.data[DOMAIN][API][entry.entry_id] = p_api
 
-    p_api_unit: str = config.get(CONF_UNIT_OF_MEASUREMENT)
-    if p_api_unit not in [KM, MILES]:
-        _LOGGER.error("Unknown unit of distance: %s, defaulting to km", p_api_unit)
-        p_api_unit = KM
-    unit_translation = {KM: UnitOfLength.KILOMETERS, MILES: UnitOfLength.MILES}
-    hass.data[DOMAIN][UNIT][entry.entry_id] = unit_translation[p_api_unit]
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
@@ -77,6 +67,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
         hass.data[DOMAIN][API].pop(entry.entry_id)
-        hass.data[DOMAIN][UNIT].pop(entry.entry_id)
 
     return unload_ok

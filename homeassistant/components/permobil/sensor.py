@@ -8,8 +8,8 @@ from mypermobil import (
     BATTERY_AMPERE_HOURS_LEFT,
     BATTERY_CHARGE_TIME_LEFT,
     BATTERY_CHARGING,
+    BATTERY_DISTANCE_LEFT,
     BATTERY_INDOOR_DRIVE_TIME,
-    BATTERY_LOCAL_DISTANCE_LEFT,
     BATTERY_MAX_AMPERE_HOURS,
     BATTERY_MAX_DISTANCE_LEFT,
     BATTERY_STATE_OF_CHARGE,
@@ -17,6 +17,7 @@ from mypermobil import (
     POSITIONS_CURRENT,
     PRODUCT_BY_ID_UPDATED_AT,
     RECORDS_DISTANCE,
+    RECORDS_DISTANCE_UNIT,
     RECORDS_SEATING,
     USAGE_ADJUSTMENTS,
     USAGE_DISTANCE,
@@ -52,10 +53,10 @@ from .const import (
     API,
     BATTERY_ASSUMED_VOLTAGE,
     DOMAIN,
+    KILOMETERS_PER_MILE,
     LATITUDE,
     LONGITUDE,
-    MILES_PER_KILOMETER,
-    UNIT,
+    MILES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -84,13 +85,12 @@ async def async_setup_entry(
     # translate the Permobils unit of distance to a Home Assistant unit of distance
     # default to kilometers if the unit is unknown
     p_api = hass.data[DOMAIN][API][config_entry.entry_id]
-    ha_unit = hass.data[DOMAIN][UNIT][config_entry.entry_id]
 
     user_specific_sensors = [
-        PermobilDistanceLeftSensor(p_api, unit=ha_unit),
-        PermobilMaxDistanceLeftSensor(p_api, unit=ha_unit),
-        PermobilUsageDistanceSensor(p_api, unit=ha_unit),
-        PermobilRecordDistanceSensor(p_api, unit=ha_unit),
+        PermobilDistanceLeftSensor(p_api),
+        PermobilMaxDistanceLeftSensor(p_api),
+        PermobilUsageDistanceSensor(p_api),
+        PermobilRecordDistanceSensor(p_api),
     ]
 
     # create the sensors that are not user specific
@@ -118,9 +118,11 @@ class PermobilGenericSensor(SensorEntity):
     This implements the common functions of all sensors.
     """
 
-    _attr_name = "Generic Sensor"
+    _attr_unique_id: str | None = None
+    _attr_suggested_display_precision: int | None = 0
+    _item: None | list[str] = None
 
-    def __init__(self, permobil: MyPermobil, item: list, unit: str = "") -> None:
+    def __init__(self, permobil: MyPermobil) -> None:
         """Initialize the sensor.
 
         item: The item to request from the API.
@@ -128,9 +130,7 @@ class PermobilGenericSensor(SensorEntity):
         """
         super().__init__()
         self._permobil = permobil
-        self._item = item
-        if unit:
-            self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{permobil.email}_{self._item}"
 
     async def async_update(self) -> None:
         """Get the latest data from the API."""
@@ -138,8 +138,6 @@ class PermobilGenericSensor(SensorEntity):
             self._attr_native_value = await self._permobil.request_item(self._item)
             if self._attr_native_value is None:
                 _LOGGER.error("Sensor returned none %s: %s", self._attr_name)
-            if isinstance(self._attr_native_value, float):
-                self._attr_native_value = round(self._attr_native_value, 2)
 
         except MyPermobilException as err:
             _LOGGER.error("Error while fetching %s: %s", self._attr_name, err)
@@ -153,23 +151,18 @@ class PermobilStateOfChargeSensor(PermobilGenericSensor):
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_STATE_OF_CHARGE)
+    _item = BATTERY_STATE_OF_CHARGE
 
 
 class PermobilStateOfHealthSensor(PermobilGenericSensor):
     """Battery health sensor."""
 
     _attr_name = "Permobil Battery Health"
+    _attr_icon = "mdi:battery-heart-variant"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_STATE_OF_HEALTH)
+    _item = BATTERY_STATE_OF_HEALTH
 
 
 class PermobilChargingSensor(BinarySensorEntity):
@@ -179,7 +172,9 @@ class PermobilChargingSensor(BinarySensorEntity):
     """
 
     _attr_name = "Permobil is Charging"
+    _attr_icon = "mdi:battery-unknown"
     _attr_device_class = BinarySensorDeviceClass.BATTERY_CHARGING
+    _item = BATTERY_CHARGING
 
     def __init__(self, permobil: MyPermobil) -> None:
         """Initialize the sensor.
@@ -188,7 +183,6 @@ class PermobilChargingSensor(BinarySensorEntity):
         """
         super().__init__()
         self._permobil = permobil
-        self._item = BATTERY_CHARGING
 
     async def async_update(self) -> None:
         """Get charging status."""
@@ -203,13 +197,11 @@ class PermobilChargeTimeLeftSensor(PermobilGenericSensor):
     """Battery charge time left sensor."""
 
     _attr_name = "Permobil Charge Time Left"
+    _attr_icon = "mdi:battery-clock"
     _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_CHARGE_TIME_LEFT)
+    _item = BATTERY_CHARGE_TIME_LEFT
 
 
 class PermobilDistanceLeftSensor(PermobilGenericSensor):
@@ -219,10 +211,7 @@ class PermobilDistanceLeftSensor(PermobilGenericSensor):
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil, unit: UnitOfLength) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_LOCAL_DISTANCE_LEFT, unit)
+    _item = BATTERY_DISTANCE_LEFT
 
 
 class PermobilIndoorDriveTimeSensor(PermobilGenericSensor):
@@ -232,10 +221,7 @@ class PermobilIndoorDriveTimeSensor(PermobilGenericSensor):
     _attr_native_unit_of_measurement = UnitOfTime.HOURS
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_INDOOR_DRIVE_TIME)
+    _item = BATTERY_INDOOR_DRIVE_TIME
 
 
 class PermobilMaxWattHoursSensor(PermobilGenericSensor):
@@ -249,10 +235,7 @@ class PermobilMaxWattHoursSensor(PermobilGenericSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_native_value: float | None = None
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_MAX_AMPERE_HOURS)
+    _item = BATTERY_MAX_AMPERE_HOURS
 
     async def async_update(self) -> None:
         """Get battery percentage.
@@ -276,10 +259,7 @@ class PermobilWattHoursLeftSensor(PermobilGenericSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_native_value: float | None = None
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_AMPERE_HOURS_LEFT)
+    _item = BATTERY_AMPERE_HOURS_LEFT
 
     async def async_update(self) -> None:
         """Get battery percentage.
@@ -299,23 +279,7 @@ class PermobilMaxDistanceLeftSensor(PermobilGenericSensor):
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil, unit: UnitOfLength) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, BATTERY_MAX_DISTANCE_LEFT, unit)
-
-    async def async_update(self) -> None:
-        """Get Max Distance left.
-
-        since the api returns the distance in KM it needs to be converted if the
-        user is using miles.
-        """
-        await super().async_update()
-        if (
-            isinstance(self._attr_native_value, float | int)
-        ) and self._attr_native_unit_of_measurement == UnitOfLength.MILES:
-            self._attr_native_value *= MILES_PER_KILOMETER
-            self._attr_native_value = round(self._attr_native_value, 2)
+    _item = BATTERY_MAX_DISTANCE_LEFT
 
 
 class PermobilUsageDistanceSensor(PermobilGenericSensor):
@@ -325,10 +289,7 @@ class PermobilUsageDistanceSensor(PermobilGenericSensor):
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil, unit: UnitOfLength) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, USAGE_DISTANCE, unit)
+    _item = USAGE_DISTANCE
 
 
 class PermobilUsageAdjustmentsSensor(PermobilGenericSensor):
@@ -337,10 +298,7 @@ class PermobilUsageAdjustmentsSensor(PermobilGenericSensor):
     _attr_name = "Permobil Number of Adjustments"
     _attr_native_unit_of_measurement = "adjustments"
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, USAGE_ADJUSTMENTS)
+    _item = USAGE_ADJUSTMENTS
 
 
 class PermobilRecordDistanceSensor(PermobilGenericSensor):
@@ -350,10 +308,19 @@ class PermobilRecordDistanceSensor(PermobilGenericSensor):
     _attr_native_unit_of_measurement = UnitOfLength.KILOMETERS
     _attr_device_class = SensorDeviceClass.DISTANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _item = RECORDS_DISTANCE
 
-    def __init__(self, permobil: MyPermobil, unit: UnitOfLength) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, RECORDS_DISTANCE, unit)
+    async def async_update(self) -> None:
+        """Update record distance sensor.
+
+        Since the record distance depends on the users settings,
+        we need to convert it to KM if the user has set it to miles.
+        """
+        await super().async_update()
+        if isinstance(self._attr_native_value, float | int):
+            unit = await self._permobil.request_item(RECORDS_DISTANCE_UNIT)
+            if unit == MILES:
+                self._attr_native_value *= KILOMETERS_PER_MILE
 
 
 class PermobilRecordAdjustmentsSensor(PermobilGenericSensor):
@@ -362,22 +329,21 @@ class PermobilRecordAdjustmentsSensor(PermobilGenericSensor):
     _attr_name = "Permobil Record Number of Adjustments"
     _attr_native_unit_of_measurement = "adjustments"
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, permobil: MyPermobil) -> None:
-        """Initialize the sensor."""
-        super().__init__(permobil, RECORDS_SEATING)
+    _item = RECORDS_SEATING
 
 
 class PermobilLastUpdateSensor(DateTimeEntity):
     """Timestamp of the last update from the API."""
 
     _attr_name = "Permobil Last Update"
+    _attr_icon = "mdi:update"
+    _item = PRODUCT_BY_ID_UPDATED_AT
 
     def __init__(self, permobil: MyPermobil) -> None:
         """Initialize the sensor."""
         super().__init__()
         self._permobil = permobil
-        self._item = PRODUCT_BY_ID_UPDATED_AT
+        self._attr_unique_id = f"{permobil.email}_{self._item}"
 
     async def async_update(self) -> None:
         """Get last update time."""
@@ -394,12 +360,15 @@ class PermobilPositionSensor(PermobilGenericSensor):
     """Position of wheelchair sensor."""
 
     _attr_name = "Permobil Position Sensor"
+    _attr_suggested_display_precision = None
     _show_on_map = True
+    _item = POSITIONS_CURRENT
 
     def __init__(self, permobil: MyPermobil) -> None:
         """Initialize the sensor."""
-        super().__init__(permobil, POSITIONS_CURRENT)
+        super().__init__(permobil)
         self._location_data: dict | None = None
+        self._attr_unique_id = f"{permobil.email}_{self._item}"
 
     async def async_update(self) -> None:
         """Get battery and position information."""
