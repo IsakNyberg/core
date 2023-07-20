@@ -21,6 +21,10 @@
         "data": {
           "code": "Region"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthentication needed",
+        "description": "A new code will be sent to your email."
       }
     },
     "abort": {

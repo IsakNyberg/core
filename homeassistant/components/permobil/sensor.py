@@ -173,6 +173,7 @@ class PermobilChargingSensor(BinarySensorEntity):
 
     _attr_name = "Permobil is Charging"
     _attr_icon = "mdi:battery-unknown"
+    _attr_is_on: bool | None = None
     _attr_device_class = BinarySensorDeviceClass.BATTERY_CHARGING
     _item = BATTERY_CHARGING
 

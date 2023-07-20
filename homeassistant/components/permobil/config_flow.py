@@ -1,6 +1,7 @@
 """Config flow for MyPermobil integration."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
 from typing import Any
 
@@ -253,3 +254,64 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # the entire flow finished successfully
         config_id: str = self.data.get(CONF_EMAIL, "token").lower()
         return self.async_create_entry(title=config_id, data=self.data)
+
+    async def async_step_reauth(self, user_input: Mapping[str, Any]) -> FlowResult:
+        """Perform reauth upon an API authentication error."""
+        if not self.p_api:
+            session = async_get_clientsession(self.hass)
+            self.p_api = MyPermobil(APPLICATION, session=session)
+
+        _LOGGER.debug("Permobil: reauth")
+        reauth_entry = self.hass.config_entries.async_get_entry(
+            self.context["entry_id"]
+        )
+        if not reauth_entry:
+            return self.async_abort(reason="reauth_entry_not_found")
+
+        _data = self.hass.data[DOMAIN][reauth_entry.entry_id]
+        self.data[CONF_CODE] = ""
+        self.data[CONF_TOKEN] = ""
+        self.data[CONF_TTL] = ""
+        self.data[CONF_DEVICE_ID] = ""
+        self.data[CONF_EMAIL] = _data[CONF_EMAIL]
+        self.data[CONF_REGION] = _data[CONF_REGION]
+        self.p_api.set_email(_data[CONF_EMAIL])
+        self.p_api.set_region(_data[CONF_REGION])
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
+        """Dialog that informs the user that reauth is required."""
+        if user_input is None:
+            # The user opened the reauth prompt for the first time
+            return self.async_show_form(
+                step_id="reauth_confirm",
+                data_schema=vol.Schema({}),
+            )
+
+        if not self.p_api:
+            session = async_get_clientsession(self.hass)
+            self.p_api = MyPermobil(APPLICATION, session=session)
+
+        errors: dict[str, str] = {}
+        try:
+            await self.p_api.request_application_code()  # MyPermobilAPIException
+        except MyPermobilConnectionException as err:
+            # the connection has returned an error
+            _LOGGER.error("Permobil: %s", err)
+            errors["base"] = f"Pemobil: {err}"
+            errors["reason"] = "connection_error"
+        except MyPermobilAPIException as err:
+            # the backend has returned an error
+            _LOGGER.error("Permobil: %s", err)
+            errors["base"] = f"Pemobil: {err}"
+            errors["reason"] = "api_error"
+
+        if errors:
+            # There was an error sending the code
+            return self.async_show_form(
+                step_id="reauth_confirm",
+                data_schema=vol.Schema({}),
+                errors=errors,
+            )
+
+        return await self.async_step_email_code()
