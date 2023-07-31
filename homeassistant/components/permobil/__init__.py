@@ -20,7 +20,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from .const import APPLICATION, DOMAIN
 from .coordinator import MyPermobilCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 _LOGGER = logging.getLogger(__name__)
 

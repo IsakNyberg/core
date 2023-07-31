@@ -65,6 +65,9 @@
       },
       "record_distance": {
         "name": "Record distance"
+      },
+      "battery_charging": {
+        "name": "Battery charging"
       }
     }
   }
