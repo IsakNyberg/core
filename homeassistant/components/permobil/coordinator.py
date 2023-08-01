@@ -26,9 +26,27 @@ _LOGGER = logging.getLogger(__name__)
 class MyPermobilData:
     """MyPermobil data stored in the DataUpdateCoordinator."""
 
-    battery: dict[str, str | float | int | list | dict]
-    daily_usage: dict[str, str | float | int | list | dict]
-    records: dict[str, str | float | int | list | dict]
+    battery: dict[str, bool | str | float | int | list | dict]
+    daily_usage: dict[str, bool | str | float | int | list | dict]
+    records: dict[str, bool | str | float | int | list | dict]
+
+    def nested_get(
+        self,
+        data: dict | list,
+        keys: list[str | int],
+    ) -> str | float | int | list | dict | bool | None:
+        """Get a value from a nested dict."""
+        try:
+            for key in keys:
+                if isinstance(data, dict):
+                    data = data[key]
+                elif isinstance(data, list) and isinstance(key, int):
+                    data = data[key]
+                else:
+                    return data
+        except (KeyError, IndexError):
+            return None
+        return data
 
 
 class MyPermobilCoordinator(DataUpdateCoordinator[MyPermobilData]):

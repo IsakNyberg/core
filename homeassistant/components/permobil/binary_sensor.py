@@ -54,7 +54,7 @@ class PermobilBinarySensorEntityDescription(
 SENSOR_DESCRIPTIONS: tuple[PermobilBinarySensorEntityDescription, ...] = (
     PermobilBinarySensorEntityDescription(
         # binary sensor that indicates if the battery is charging
-        value_fn=lambda data: data.battery[BATTERY_CHARGING],
+        value_fn=lambda data: data.nested_get(data.battery, BATTERY_CHARGING),
         key=BATTERY_CHARGING,
         translation_key="battery_charging",
         device_class=BinarySensorDeviceClass.BATTERY_CHARGING,
