@@ -6,7 +6,14 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.components.permobil import config_flow
 from homeassistant.components.permobil.const import DOMAIN
-from homeassistant.const import CONF_CODE, CONF_EMAIL, CONF_REGION, CONF_TOKEN, CONF_TTL
+from homeassistant.const import (
+    CONF_CODE,
+    CONF_EMAIL,
+    CONF_ID,
+    CONF_REGION,
+    CONF_TOKEN,
+    CONF_TTL,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -18,6 +25,7 @@ MOCK_REGION = "region_name"
 MOCK_TOKEN = ("a" * 256, "date")
 MOCK_CODE = "012345                      "
 MOCK_EMAIL = "valid@email.com            "
+MOCK_PRODUCT_ID = "0" * 24
 EMPTY = ""
 INVALID_EMAIL = "this is not a valid email"
 INVALID_REGION = "this is not a valid region"
@@ -159,6 +167,9 @@ async def test_form_valid_code(hass: HomeAssistant) -> None:
     with patch(
         "homeassistant.components.permobil.config_flow.MyPermobil.request_application_token",
         return_value=MOCK_TOKEN,
+    ), patch(
+        "homeassistant.components.permobil.config_flow.MyPermobil.request_product_id",
+        return_value=MOCK_PRODUCT_ID,
     ):
         result = await hass.config_entries.flow.async_init(
             config_flow.DOMAIN,
@@ -170,6 +181,7 @@ async def test_form_valid_code(hass: HomeAssistant) -> None:
     assert result["data"].get(CONF_CODE) == expected_code
     assert result["data"].get(CONF_TOKEN) == MOCK_TOKEN[0]
     assert result["data"].get(CONF_TTL) == MOCK_TOKEN[1]
+    assert result["data"].get(CONF_ID) == MOCK_PRODUCT_ID
     assert not result.get("errors")
 
 
