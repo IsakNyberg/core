@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import logging
 
-from mypermobil import MyPermobil, MyPermobilClientException
+from mypermobil import MyPermobil, MyPermobilClientException, MyPermobilException
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_CODE,
     CONF_EMAIL,
+    CONF_ID,
     CONF_REGION,
     CONF_TOKEN,
     CONF_TTL,
@@ -38,6 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         code=entry.data.get(CONF_CODE),
         token=entry.data.get(CONF_TOKEN),
         expiration_date=entry.data.get(CONF_TTL),
+        product_id=entry.data.get(CONF_ID),
     )
     try:
         p_api.self_authenticate()
@@ -51,6 +53,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry to an entry that has a product."""
+    _LOGGER.debug("Migrating from version %s", config_entry.version)
+
+    if config_entry.version == 1:
+        new = config_entry.data.copy()
+        try:
+            session = hass.helpers.aiohttp_client.async_get_clientsession(hass)
+            p_api = MyPermobil(
+                APPLICATION,
+                session,
+                email=new[CONF_EMAIL],
+                region=new[CONF_REGION],
+                code=new[CONF_CODE],
+                token=new[CONF_TOKEN],
+                expiration_date=new[CONF_TTL],
+            )
+            p_api.self_authenticate()
+            new[CONF_ID] = await p_api.request_product_id()
+        except MyPermobilException as err:
+            _LOGGER.error("Permobil: %s", err)
+            raise ConfigEntryNotReady(
+                f"Permobil Config error for {p_api.email} in migration from version 1"
+            ) from err
+
+        config_entry.version = 2
+        hass.config_entries.async_update_entry(config_entry, data=new)
+
+    _LOGGER.info("Migration to version %s successful", config_entry.version)
 
     return True
 

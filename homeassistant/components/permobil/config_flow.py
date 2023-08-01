@@ -11,6 +11,7 @@ from homeassistant import config_entries, exceptions
 from homeassistant.const import (
     CONF_CODE,
     CONF_EMAIL,
+    CONF_ID,
     CONF_REGION,
     CONF_TOKEN,
     CONF_TTL,
@@ -42,6 +43,7 @@ async def validate_input(p_api: MyPermobil, data: dict[str, Any]) -> None:
     email = data.get(CONF_EMAIL)
     code = data.get(CONF_CODE)
     token = data.get(CONF_TOKEN)
+
     if email:
         p_api.set_email(email)
     if code:
@@ -55,7 +57,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # The schema version of the entries that it creates
     # Home Assistant will call your migrate method if the version changes
-    VERSION = 1
+    VERSION = 2
     p_api: MyPermobil = None
     region_names: dict[str, str] = {"Failed to load regions": ""}
     data: dict[str, str] = {
@@ -64,6 +66,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         CONF_CODE: "",
         CONF_TOKEN: "",
         CONF_TTL: "",
+        CONF_ID: "",
     }
 
     async def async_step_user(
@@ -109,7 +112,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_region()
 
     async def async_step_region(self, user_input=None) -> FlowResult:
-        """Invoke when a user initiates a flow via the user interface."""
+        """Second step in config flow to select the region."""
         errors: dict[str, str] = {}
         if not self.p_api:
             # create the api for getting regions and sending the code
@@ -177,7 +180,7 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_email_code()
 
     async def async_step_email_code(self, user_input=None) -> FlowResult:
-        """Second step in config flow to enter the email code."""
+        """Third step in config flow to enter the email code."""
         errors: dict[str, str] = {}
         if not self.p_api:
             # create the api to validate the code and to get token
@@ -195,10 +198,14 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await validate_input(self.p_api, user_input)  # ClientException
                 self.data[CONF_CODE] = user_input[CONF_CODE]
                 _LOGGER.debug("Permobil: code %s…", self.data[CONF_CODE][:3])
-                resp = await self.p_api.request_application_token()  # APIException
-                token, ttl = resp  # get token and ttl from the response
+                product_id = await self.p_api.request_product_id()  # APIException
+                (
+                    token,
+                    ttl,
+                ) = await self.p_api.request_application_token()  # APIException
                 self.data[CONF_TOKEN] = token
                 self.data[CONF_TTL] = ttl
+                self.data[CONF_ID] = product_id
                 _LOGGER.debug("Permobil: token %s…", self.data[CONF_TOKEN][:5])
                 _LOGGER.debug("Permobil: ttl %s", self.data[CONF_TTL])
         except (MyPermobilAPIException, MyPermobilClientException) as err:
