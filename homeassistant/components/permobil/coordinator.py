@@ -8,6 +8,7 @@ import async_timeout
 from mypermobil import (
     ENDPOINT_BATTERY_INFO,
     ENDPOINT_DAILY_USAGE,
+    ENDPOINT_PRODUCTS_POSITIONS,
     ENDPOINT_VA_USAGE_RECORDS,
     MyPermobil,
     MyPermobilAPIException,
@@ -29,6 +30,7 @@ class MyPermobilData:
     battery: dict[str, bool | str | float | int | list | dict]
     daily_usage: dict[str, bool | str | float | int | list | dict]
     records: dict[str, bool | str | float | int | list | dict]
+    position: dict[str, str | float | int | list | dict]
 
     def nested_get(
         self,
@@ -69,10 +71,14 @@ class MyPermobilCoordinator(DataUpdateCoordinator[MyPermobilData]):
                 battery = await self.p_api.request_endpoint(ENDPOINT_BATTERY_INFO)
                 daily_usage = await self.p_api.request_endpoint(ENDPOINT_DAILY_USAGE)
                 records = await self.p_api.request_endpoint(ENDPOINT_VA_USAGE_RECORDS)
+                position = await self.p_api.request_endpoint(
+                    ENDPOINT_PRODUCTS_POSITIONS
+                )
                 return MyPermobilData(
                     battery=battery,
                     daily_usage=daily_usage,
                     records=records,
+                    position=position,
                 )
 
         except MyPermobilAPIException as err:

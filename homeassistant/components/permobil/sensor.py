@@ -31,6 +31,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     PERCENTAGE,
     UnitOfEnergy,
     UnitOfLength,
@@ -41,7 +43,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BATTERY_ASSUMED_VOLTAGE, DOMAIN, KM, MILES_TO_KM
+from .const import BATTERY_ASSUMED_VOLTAGE, DOMAIN, KM, LATITUDE, LONGITUDE, MILES_TO_KM
 from .coordinator import MyPermobilCoordinator
 
 
@@ -219,6 +221,7 @@ async def async_setup_entry(
         PermobilSensor(coordinator=coordinator, description=description)
         for description in SENSOR_DESCRIPTIONS
     )
+    async_add_entities([PermobilPositionSensor(coordinator=coordinator)])
 
 
 class PermobilSensor(CoordinatorEntity[MyPermobilCoordinator], SensorEntity):
@@ -247,3 +250,43 @@ class PermobilSensor(CoordinatorEntity[MyPermobilCoordinator], SensorEntity):
     def native_value(self) -> float | None:
         """Return the value of the sensor."""
         return self.entity_description.value_fn(self.coordinator.data)
+
+
+class PermobilPositionSensor(SensorEntity):
+    """Position of wheelchair sensor."""
+
+    _attr_name = "Permobil Position Sensor"
+    _attr_icon = "mdi:map-marker-question"
+    _show_on_map = False
+    _location_data: dict[str, str] = {}
+
+    def __init__(self, coordinator: MyPermobilCoordinator) -> None:
+        """Initialize the sensor."""
+        self.coordinator = coordinator
+        self._attr_unique_id = f"{coordinator.p_api.email}_position"
+
+    @property
+    def native_value(self) -> str:
+        """Get battery and position information."""
+
+        lat = self.coordinator.data.position.get(LATITUDE)
+        lng = self.coordinator.data.position.get(LONGITUDE)
+        if not lat or not lng:
+            self._location_data = {}
+            self._show_on_map = False
+            self._attr_available = False
+            self._attr_icon = "mdi:map-marker-off"
+            return "Position Unknown"
+
+        self._location_data = {
+            ATTR_LATITUDE: str(lat),
+            ATTR_LONGITUDE: str(lng),
+        }
+        self._show_on_map = False
+        self._attr_icon = "mdi:map-marker"
+        return "Visible on Map"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str] | None:
+        """Return latitude value of the device."""
+        return self._location_data
