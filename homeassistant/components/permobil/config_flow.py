@@ -198,16 +198,16 @@ class PermobilConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await validate_input(self.p_api, user_input)  # ClientException
                 self.data[CONF_CODE] = user_input[CONF_CODE]
                 _LOGGER.debug("Permobil: code %s…", self.data[CONF_CODE][:3])
-                product_id = await self.p_api.request_product_id()  # APIException
-                (
-                    token,
-                    ttl,
-                ) = await self.p_api.request_application_token()  # APIException
-                self.data[CONF_TOKEN] = token
-                self.data[CONF_TTL] = ttl
-                self.data[CONF_ID] = product_id
+                resp = await self.p_api.request_application_token()  # APIException
+                self.data[CONF_TOKEN] = resp[0]
+                self.data[CONF_TTL] = resp[1]
                 _LOGGER.debug("Permobil: token %s…", self.data[CONF_TOKEN][:5])
                 _LOGGER.debug("Permobil: ttl %s", self.data[CONF_TTL])
+                self.p_api.set_token(self.data[CONF_TOKEN])
+                self.p_api.set_expiration_date(self.data[CONF_TTL])
+                self.p_api.self_authenticate()  # APIException
+                product_id = await self.p_api.request_product_id()  # APIException
+                self.data[CONF_ID] = product_id
         except (MyPermobilAPIException, MyPermobilClientException) as err:
             # the code did not pass validation by the api client
             # or the backend returned an error when trying to validate the code

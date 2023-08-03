@@ -1,4 +1,5 @@
 """Test the MyPermobil config flow."""
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,10 +20,10 @@ from homeassistant.data_entry_flow import FlowResultType
 
 pytestmark = pytest.mark.usefixtures("mock_setup_entry")
 
-
 MOCK_REGIONS = {"region_name": "https://example.com"}
 MOCK_REGION = "region_name"
-MOCK_TOKEN = ("a" * 256, "date")
+MOCK_EXPIRATION = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+MOCK_TOKEN = ("a" * 256, MOCK_EXPIRATION)
 MOCK_CODE = "012345                      "
 MOCK_EMAIL = "valid@email.com            "
 MOCK_PRODUCT_ID = "0" * 24
@@ -170,6 +171,9 @@ async def test_form_valid_code(hass: HomeAssistant) -> None:
     ), patch(
         "homeassistant.components.permobil.config_flow.MyPermobil.request_product_id",
         return_value=MOCK_PRODUCT_ID,
+    ), patch(
+        "homeassistant.components.permobil.config_flow.MyPermobil.self_authenticate",
+        return_value=True,
     ):
         result = await hass.config_entries.flow.async_init(
             config_flow.DOMAIN,
