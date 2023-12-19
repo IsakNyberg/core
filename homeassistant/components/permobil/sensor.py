@@ -15,6 +15,8 @@ from mypermobil import (
     BATTERY_MAX_DISTANCE_LEFT,
     BATTERY_STATE_OF_CHARGE,
     BATTERY_STATE_OF_HEALTH,
+    RECORDS_DISTANCE,
+    RECORDS_DISTANCE_UNIT,
     RECORDS_SEATING,
     USAGE_ADJUSTMENTS,
     USAGE_DISTANCE,
@@ -32,7 +34,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BATTERY_ASSUMED_VOLTAGE, DOMAIN
+from .const import BATTERY_ASSUMED_VOLTAGE, DOMAIN, KM, MILES_TO_KM
 from .coordinator import MyPermobilCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +53,18 @@ class PermobilSensorEntityDescription(
     SensorEntityDescription, PermobilRequiredKeysMixin
 ):
     """Describes Permobil sensor entity."""
+
+
+def records_dist_fn(data: Any) -> float:
+    """Find and calculate the record distance.
+
+    This function gets the record distance from the data and converts it to kilometers if needed.
+    """
+    distance = data.records[RECORDS_DISTANCE[0]]
+    distance_unit = data.records[RECORDS_DISTANCE_UNIT[0]]
+    if distance_unit != KM:
+        distance = distance * MILES_TO_KM
+    return distance
 
 
 SENSOR_DESCRIPTIONS: tuple[PermobilSensorEntityDescription, ...] = (
@@ -159,13 +173,23 @@ SENSOR_DESCRIPTIONS: tuple[PermobilSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
     PermobilSensorEntityDescription(
-        # Largest number of adjustemnts in a single 24h period, never resets
+        # Largest number of adjustemnts in a single 24h period, monotonically increasing, never resets
         value_fn=lambda data: data.records[RECORDS_SEATING[0]],
         available_fn=lambda data: RECORDS_SEATING[0] in data.records,
         key="record_adjustments",
         translation_key="record_adjustments",
         icon="mdi:seat-recline-extra",
         native_unit_of_measurement="adjustments",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
+    PermobilSensorEntityDescription(
+        # Record of largest distance travelled in a day, monotonically increasing, never resets
+        value_fn=records_dist_fn,
+        available_fn=lambda data: RECORDS_DISTANCE[0] in data.records,
+        key="record_distance",
+        translation_key="record_distance",
+        icon="mdi:map-marker-distance",
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
 )
