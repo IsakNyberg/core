@@ -3,7 +3,7 @@
   "name": "MyPermobil",
   "codeowners": ["@IsakNyberg"],
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/permobil",
+  "documentation": "https://www.home-assistant.io/integrations/mypermobil",
   "iot_class": "cloud_polling",
   "requirements": ["mypermobil==0.1.6"]
 }
