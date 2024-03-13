@@ -20,6 +20,7 @@ class MyPermobilData:
     battery: dict[str, str | float | int | bool | list | dict]
     daily_usage: dict[str, str | float | int | list | dict]
     records: dict[str, str | float | int | list | dict]
+    position: dict[str, str | float | int | list | dict]
 
 
 class MyPermobilCoordinator(DataUpdateCoordinator[MyPermobilData]):
@@ -36,16 +37,19 @@ class MyPermobilCoordinator(DataUpdateCoordinator[MyPermobilData]):
         self.p_api = p_api
 
     async def _async_update_data(self) -> MyPermobilData:
-        """Fetch data from the 3 API endpoints."""
+        """Fetch data from the 4 API endpoints."""
         try:
             async with asyncio.timeout(10):
                 battery = await self.p_api.get_battery_info()
                 daily_usage = await self.p_api.get_daily_usage()
                 records = await self.p_api.get_usage_records()
+                position = await self.p_api.get_gps_position()
+
                 return MyPermobilData(
                     battery=battery,
                     daily_usage=daily_usage,
                     records=records,
+                    position=position,
                 )
 
         except MyPermobilAPIException as err:

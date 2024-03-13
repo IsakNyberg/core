@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from mypermobil import MyPermobil, MyPermobilClientException
+from mypermobil import MyPermobil, MyPermobilAPIException, MyPermobilClientException
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -43,7 +43,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     try:
         p_api.self_authenticate()
-    except MyPermobilClientException as err:
+        product_id: str = await p_api.request_product_id()
+        p_api.set_product_id(product_id)
+    except (MyPermobilClientException, MyPermobilAPIException) as err:
         _LOGGER.error("Error authenticating  %s", err)
         raise ConfigEntryAuthFailed(f"Config error for {p_api.email}") from err
 

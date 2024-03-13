@@ -68,6 +68,9 @@
       },
       "record_distance": {
         "name": "Record distance"
+      },
+      "location": {
+        "name": "Location"
       }
     },
     "binary_sensor": {

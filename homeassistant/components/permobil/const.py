@@ -9,3 +9,6 @@ BATTERY_ASSUMED_VOLTAGE = 25.0  # This is the average voltage over all states of
 REGIONS = "regions"
 KM = "kilometers"
 MILES = "miles"
+
+LATITUDE = "lat"
+LONGITUDE = "long"

@@ -30,6 +30,9 @@
       },
       "record_distance": {
         "default": "mdi:map-marker-distance"
+      },
+      "location": {
+        "default": "mdi:map-marker"
       }
     }
   }

@@ -30,11 +30,18 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfLength, UnitOfTime
+from homeassistant.const import (
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
+    PERCENTAGE,
+    UnitOfEnergy,
+    UnitOfLength,
+    UnitOfTime,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import BATTERY_ASSUMED_VOLTAGE, DOMAIN, KM, MILES
+from .const import BATTERY_ASSUMED_VOLTAGE, DOMAIN, KM, LATITUDE, LONGITUDE, MILES
 from .coordinator import MyPermobilCoordinator
 from .entity import PermobilEntity
 
@@ -164,6 +171,14 @@ SENSOR_DESCRIPTIONS: tuple[PermobilSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
+    PermobilSensorEntityDescription(
+        # GPS position of the wheelchair
+        value_fn=lambda _: 1,
+        available_fn=lambda data: LONGITUDE in data.position
+        and LATITUDE in data.position,
+        key="location",
+        translation_key="location",
+    ),
 )
 
 DISTANCE_UNITS: dict[Any, UnitOfLength] = {
@@ -193,7 +208,8 @@ class PermobilSensor(PermobilEntity, SensorEntity):
     This implements the common functions of all sensors.
     """
 
-    _attr_suggested_display_precision = 0
+    _attr_suggested_display_precision: int = 0
+    _show_on_map: bool = False
     entity_description: PermobilSensorEntityDescription
 
     @property
@@ -216,3 +232,16 @@ class PermobilSensor(PermobilEntity, SensorEntity):
     def native_value(self) -> float | int:
         """Return the value of the sensor."""
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str] | None:
+        """Return latitude value of the device."""
+        if self.entity_description.key == "location":
+            lat = self.coordinator.data.position[LATITUDE]
+            lng = self.coordinator.data.position[LONGITUDE]
+            self._show_on_map = True
+            return {
+                ATTR_LATITUDE: str(lat),
+                ATTR_LONGITUDE: str(lng),
+            }
+        return None
