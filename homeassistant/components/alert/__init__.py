@@ -26,13 +26,12 @@ from homeassistant.const import (
     STATE_OFF,
     STATE_ON,
 )
-from homeassistant.core import Event, HassJob, HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HassJob, HomeAssistant
 from homeassistant.exceptions import ServiceNotFound
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.event import (
-    EventStateChangedData,
     async_track_point_in_time,
     async_track_state_change_event,
 )
@@ -125,9 +124,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     if not entities:
         return False
 
-    component.async_register_entity_service(SERVICE_TURN_OFF, {}, "async_turn_off")
-    component.async_register_entity_service(SERVICE_TURN_ON, {}, "async_turn_on")
-    component.async_register_entity_service(SERVICE_TOGGLE, {}, "async_toggle")
+    component.async_register_entity_service(SERVICE_TURN_OFF, None, "async_turn_off")
+    component.async_register_entity_service(SERVICE_TURN_ON, None, "async_turn_on")
+    component.async_register_entity_service(SERVICE_TOGGLE, None, "async_toggle")
 
     await component.async_add_entities(entities)
 
@@ -163,16 +162,8 @@ class Alert(Entity):
         self._data = data
 
         self._message_template = message_template
-        if self._message_template is not None:
-            self._message_template.hass = hass
-
         self._done_message_template = done_message_template
-        if self._done_message_template is not None:
-            self._done_message_template.hass = hass
-
         self._title_template = title_template
-        if self._title_template is not None:
-            self._title_template.hass = hass
 
         self._notifiers = notifiers
         self._can_ack = can_ack

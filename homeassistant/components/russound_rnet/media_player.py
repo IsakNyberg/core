@@ -9,7 +9,7 @@ from russound import russound
 import voluptuous as vol
 
 from homeassistant.components.media_player import (
-    PLATFORM_SCHEMA,
+    PLATFORM_SCHEMA as MEDIA_PLAYER_PLATFORM_SCHEMA,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
@@ -30,7 +30,7 @@ ZONE_SCHEMA = vol.Schema({vol.Required(CONF_NAME): cv.string})
 
 SOURCE_SCHEMA = vol.Schema({vol.Required(CONF_NAME): cv.string})
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+PLATFORM_SCHEMA = MEDIA_PLAYER_PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HOST): cv.string,
         vol.Required(CONF_NAME): cv.string,
@@ -58,9 +58,7 @@ def setup_platform(
     russ = russound.Russound(host, port)
     russ.connect()
 
-    sources = []
-    for source in config[CONF_SOURCES]:
-        sources.append(source["name"])
+    sources = [source["name"] for source in config[CONF_SOURCES]]
 
     if russ.is_connected():
         for zone_id, extra in config[CONF_ZONES].items():

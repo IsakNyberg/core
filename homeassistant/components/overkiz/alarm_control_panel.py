@@ -221,27 +221,26 @@ async def async_setup_entry(
 ) -> None:
     """Set up the Overkiz alarm control panel from a config entry."""
     data: HomeAssistantOverkizData = hass.data[DOMAIN][entry.entry_id]
-    entities: list[OverkizAlarmControlPanel] = []
 
-    for device in data.platforms[Platform.ALARM_CONTROL_PANEL]:
-        if description := SUPPORTED_DEVICES.get(device.widget) or SUPPORTED_DEVICES.get(
-            device.ui_class
-        ):
-            entities.append(
-                OverkizAlarmControlPanel(
-                    device.device_url,
-                    data.coordinator,
-                    description,
-                )
-            )
-
-    async_add_entities(entities)
+    async_add_entities(
+        OverkizAlarmControlPanel(
+            device.device_url,
+            data.coordinator,
+            description,
+        )
+        for device in data.platforms[Platform.ALARM_CONTROL_PANEL]
+        if (
+            description := SUPPORTED_DEVICES.get(device.widget)
+            or SUPPORTED_DEVICES.get(device.ui_class)
+        )
+    )
 
 
 class OverkizAlarmControlPanel(OverkizDescriptiveEntity, AlarmControlPanelEntity):
     """Representation of an Overkiz Alarm Control Panel."""
 
     entity_description: OverkizAlarmDescription
+    _attr_code_arm_required = False
 
     def __init__(
         self,

@@ -2,7 +2,6 @@
 
 from copy import copy
 import dataclasses
-import logging
 
 from screenlogicpy.const.common import ON_OFF
 from screenlogicpy.const.data import ATTR, DEVICE, GROUP, VALUE
@@ -15,12 +14,10 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN as SL_DOMAIN
 from .coordinator import ScreenlogicDataUpdateCoordinator
 from .entity import (
     ScreenLogicEntity,
@@ -28,9 +25,8 @@ from .entity import (
     ScreenLogicPushEntity,
     ScreenLogicPushEntityDescription,
 )
+from .types import ScreenLogicConfigEntry
 from .util import cleanup_excluded_entity
-
-_LOGGER = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -171,36 +167,33 @@ SUPPORTED_SCG_SENSORS = [
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: ScreenLogicConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up entry."""
-    entities: list[ScreenLogicBinarySensor] = []
-    coordinator: ScreenlogicDataUpdateCoordinator = hass.data[SL_DOMAIN][
-        config_entry.entry_id
-    ]
+    coordinator = config_entry.runtime_data
     gateway = coordinator.gateway
 
-    for core_sensor_description in SUPPORTED_CORE_SENSORS:
+    entities: list[ScreenLogicBinarySensor] = [
+        ScreenLogicPushBinarySensor(coordinator, core_sensor_description)
+        for core_sensor_description in SUPPORTED_CORE_SENSORS
         if (
             gateway.get_data(
                 *core_sensor_description.data_root, core_sensor_description.key
             )
             is not None
-        ):
-            entities.append(
-                ScreenLogicPushBinarySensor(coordinator, core_sensor_description)
-            )
+        )
+    ]
 
     for p_index, p_data in gateway.get_data(DEVICE.PUMP).items():
         if not p_data or not p_data.get(VALUE.DATA):
             continue
-        for proto_pump_sensor_description in SUPPORTED_PUMP_SENSORS:
-            entities.append(
-                ScreenLogicPumpBinarySensor(
-                    coordinator, copy(proto_pump_sensor_description), p_index
-                )
+        entities.extend(
+            ScreenLogicPumpBinarySensor(
+                coordinator, copy(proto_pump_sensor_description), p_index
             )
+            for proto_pump_sensor_description in SUPPORTED_PUMP_SENSORS
+        )
 
     chem_sensor_description: ScreenLogicPushBinarySensorDescription
     for chem_sensor_description in SUPPORTED_INTELLICHEM_SENSORS:

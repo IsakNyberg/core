@@ -72,6 +72,7 @@ FILTER_LIFE_SUPPORTED = [
     "Core300S",
     "Core400S",
     "Core600S",
+    "EverestAir",
     "Vital100S",
     "Vital200S",
 ]
@@ -83,7 +84,14 @@ AIR_QUALITY_SUPPORTED = [
     "Vital100S",
     "Vital200S",
 ]
-PM25_SUPPORTED = ["Core300S", "Core400S", "Core600S", "Vital100S", "Vital200S"]
+PM25_SUPPORTED = [
+    "Core300S",
+    "Core400S",
+    "Core600S",
+    "EverestAir",
+    "Vital100S",
+    "Vital200S",
+]
 
 SENSORS: tuple[VeSyncSensorEntityDescription, ...] = (
     VeSyncSensorEntityDescription(
@@ -194,12 +202,15 @@ async def async_setup_entry(
 @callback
 def _setup_entities(devices, async_add_entities):
     """Check if device is online and add entity."""
-    entities = []
-    for dev in devices:
-        for description in SENSORS:
-            if description.exists_fn(dev):
-                entities.append(VeSyncSensorEntity(dev, description))
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(
+        (
+            VeSyncSensorEntity(dev, description)
+            for dev in devices
+            for description in SENSORS
+            if description.exists_fn(dev)
+        ),
+        update_before_add=True,
+    )
 
 
 class VeSyncSensorEntity(VeSyncBaseEntity, SensorEntity):
